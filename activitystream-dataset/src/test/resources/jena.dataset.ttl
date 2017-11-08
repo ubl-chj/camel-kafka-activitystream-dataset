@@ -1,0 +1,12 @@
+@prefix ja:      <http://jena.hpl.hp.com/2005/11/Assembler#> .
+@prefix tdb:     <http://jena.hpl.hp.com/2008/tdb#> .
+@prefix :        <#> .
+
+[] ja:loadClass "org.apache.jena.tdb.TDB" .
+
+:dataset a tdb:DatasetTDB ;
+    tdb:unionDefaultGraph true ;
+    ja:context [
+        ja:cxtName "arq:queryTimeout" ;
+        ja:cxtValue "10000" ] ;
+    tdb:location "/tmp/activityStream_data" .

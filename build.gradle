@@ -1,0 +1,354 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        jcenter()
+    }
+    dependencies {
+        classpath 'com.bmuschko:gradle-nexus-plugin:2.3.1'
+    }
+}
+
+plugins {
+    id 'net.researchgate.release' version '2.6.0'
+    id 'io.codearte.nexus-staging' version '0.9.0'
+    id 'com.palantir.docker' version '0.13.0'
+    id 'org.dm.bundle' version '0.10.0'
+}
+
+ext {
+    name = 'Camel Kafka ActivityStream Dataset'
+    description = 'A Camel LDP implementation'
+    vendor = 'pandorasystems'
+    homepage = 'http://www.trellisldp.org'
+    url = 'http://www.trellisldp.org/apidocs'
+    license = 'Apache 2'
+    inceptionYear = '2017'
+}
+
+configurations {
+    buildToolsConfig
+}
+
+dependencies {
+    buildToolsConfig "cool.pandora:pandora-build-tools:0.1.3"
+}
+
+task processBuildTools(type: Copy) {
+    from {
+        configurations.buildToolsConfig.collect {
+            zipTree(it).matching {
+                include 'checkstyle/*.xml'
+                include 'license/*.txt'
+            }
+        }
+    }
+    into 'build'
+}
+
+configure(allprojects) { project ->
+    apply plugin: 'maven'
+    apply plugin: 'java'
+    apply plugin: 'java-library'
+    apply plugin: 'org.dm.bundle'
+
+    group = 'org.trellisldp.camel'
+
+    repositories {
+        jcenter()
+        mavenCentral()
+        mavenLocal()
+        maven {
+            url "https://oss.sonatype.org/content/repositories/snapshots"
+        }
+        maven {
+            url "http://clojars.org/repo/"
+        }
+    }
+
+    compileJava {
+        sourceCompatibility = 1.8
+        targetCompatibility = 1.8
+        options.encoding = 'UTF-8'
+    }
+
+    compileTestJava {
+        sourceCompatibility = 1.8
+        targetCompatibility = 1.8
+        options.encoding = 'UTF-8'
+        options.compilerArgs += "-parameters"
+    }
+
+    ext {
+        /* Dependencies */
+        camelVersion = '2.20.0'
+        camelLdpVersion = '0.1.0-SNAPSHOT'
+        commonsIoVersion = "2.5"
+        commonsLangVersion = "3.5"
+        commonsCsvVersion = "1.4"
+        commonsRdfJenaVersion = "0.3.0-incubating"
+        dexxcollectionVersion = '0.6'
+        guavaVersion = "20.0"
+        httpclientVersion = "4.5.3"
+        httpcoreVersion = "4.4.6"
+        jacksonVersion = "2.9.0"
+        jsonldVersion = "0.11.1"
+        mustacheVersion = "0.9.5_1"
+        thriftVersion = "0.9.3"
+        trellisApiVersion = "0.3.0"
+        trellisIoJenaVersion = '0.2.1'
+        trellisVocabularyVersion = '0.1.0'
+        /* Testing */
+        junitVersion = '5.0.1'
+        junitPlatformVersion = '1.0.1'
+        jaxbVersion = '2.3.0'
+        jacocoVersion = '0.7.9'
+        jenaVersion = '3.5.0'
+        activationVersion = '1.1.1'
+        logbackVersion = '1.2.3'
+        apiguardianVersion = '1.0.0'
+        trellisIoJenaVersion = '0.2.1'
+
+        /* OSGi */
+        camelVersionRange = '[2.16,3)'
+        projectOsgiVersion = project.version.replaceAll("-SNAPSHOT", ".SNAPSHOT")
+        defaultOsgiImports = 'org.osgi.service.blueprint;version="[1,2)",*'
+    }
+
+    processResources {
+        filesNotMatching(["**/*.sh", "**/*.jar"]) {
+            expand(project.properties)
+        }
+    }
+
+    check.dependsOn processBuildTools
+
+    def dockerResourceDir = "${rootProject.buildDir}/resources/main/docker"
+    def mavenInstallPath = "repository/org/trellisldp/camel"
+
+    docker {
+        name 'trellisldp/camel-kafka-activitystream-dataset'
+        tags "${version}"
+        dockerfile file("${dockerResourceDir}/Dockerfile")
+        files "${dockerResourceDir}/cfg", "${dockerResourceDir}/lib"
+        copySpec.from("${buildDir}/maven").into("${mavenInstallPath}")
+        pull true
+        noCache true
+    }
+
+    def homeDir = System.getProperty('user.home')
+    def mavenLocal = new File(homeDir, ".m2/repository/org/trellisldp/camel")
+
+    task copyTask(type: Copy) {
+        from mavenLocal
+        into "${rootProject.buildDir}/maven"
+    }
+
+    copyTask.dependsOn install
+}
+
+configure(subprojects) { subproject ->
+    apply plugin: 'com.bmuschko.nexus'
+    apply plugin: 'maven-publish'
+    apply plugin: 'signing'
+    apply plugin: 'checkstyle'
+    apply plugin: 'jacoco'
+
+    task deleteSubprojectFiles(type: Delete) {
+        delete "${projectDir}/settings.gradle", "${projectDir}/docs"
+    }
+
+    checkstyle {
+        configFile = rootProject.file('build/checkstyle/checkstyle.xml')
+        configProperties.checkstyleConfigDir = rootProject.file('build/checkstyle/')
+        toolVersion = "8.1"
+    }
+
+    task processConfig(type: Copy) {
+        from('src/main/cfg') {
+            include '**/*.cfg'
+        }
+        into 'build/cfg/main'
+    }
+
+    task sourceJar(type: Jar) {
+        classifier 'sources'
+        from sourceSets.main.allSource
+    }
+
+    artifacts {
+        archives sourceJar
+        sourceSets.main.output
+    }
+
+    classes {
+        classes.dependsOn processConfig
+    }
+
+    jacoco {
+        toolVersion = "0.7.9"
+    }
+
+    publishing {
+        publications {
+            maven(MavenPublication) {
+                from components.java
+            }
+        }
+        repositories {
+            maven {
+                url "${rootProject.buildDir}/maven"
+            }
+        }
+    }
+
+    modifyPom {
+        //noinspection GroovyAssignabilityCheck
+        project {
+            name name
+            description description
+            url url
+            inceptionYear inceptionYear
+
+            organization {
+                name vendor
+                url homepage
+            }
+
+            developers {
+                developer {
+                    id 'acoburn'
+                    name 'Aaron Coburn'
+                    email 'acoburn @ (domain of organization url)'
+                    organization 'Amherst College'
+                    organizationUrl 'https://www.amherst.edu'
+                    roles {
+                        role 'developer'
+                    }
+                    timezone '-5'
+                }
+                developer {
+                    id 'bseeger'
+                    name 'Bethany Seeger'
+                    email 'bseeger @ (domain of organization url)'
+                    organization 'Amherst College'
+                    organizationUrl 'https://www.amherst.edu'
+                    roles {
+                        role 'developer'
+                    }
+                    timezone '-5'
+                }
+                developer {
+                    id 'christopher-johnson'
+                    name 'Christopher Johnson'
+                    email 'chjohnson @ (domain of organization url)'
+                    organization ''
+                    organizationUrl ''
+                    roles {
+                        role 'developer'
+                    }
+                    timezone '+1'
+                }
+            }
+
+            scm {
+                connection 'scm:git:git://github.com/ub-leipzig/camel-kafka-activitystream-dataset.git'
+                developerConnection 'scm:git:git@github.com/ub-leipzig/camel-kafka-activitystream-dataset.git'
+                url 'https://github.com/ub-leipzig/camel-kafka-activitystream-dataset/'
+                tag 'HEAD'
+            }
+
+            licenses {
+                license {
+                    name 'Apache License, Version 2.0'
+                    url 'http://www.apache.org/licenses/LICENSE-2.0'
+                }
+            }
+        }
+    }
+
+    nexusStaging {
+        packageGroup = "cool.pandora"
+        stagingProfileId = "4d5f13c386f543"
+    }
+
+    nexus {
+        sign = true
+        repositoryUrl = 'https://oss.sonatype.org/service/local/staging/deploy/maven2/'
+        snapshotRepositoryUrl = 'https://oss.sonatype.org/content/repositories/snapshots/'
+    }
+}
+
+project("camel-kafka-karaf") {
+    description = 'Karaf Provisioning Features for Camel-Kafka services'
+
+    processResources {
+        outputs.upToDateWhen { false }
+        expand project.properties
+    }
+
+    artifacts {
+        archives(file('build/resources/main/features.xml')) {
+            classifier 'features'
+            type 'xml'
+        }
+    }
+}
+
+project("camel-ldp") {
+    description = 'LDP Utilities for Apache Camel'
+
+    dependencies {
+        api group: 'org.apache.camel', name: 'camel-core', version: camelVersion
+
+        testImplementation group: 'org.apiguardian', name: 'apiguardian-api', version: apiguardianVersion
+        testImplementation group: 'org.junit.platform', name: 'junit-platform-runner', version: junitPlatformVersion
+        testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-engine', version: junitVersion
+        testImplementation group: 'org.apache.camel', name: 'camel-test', version: camelVersion
+        testImplementation group: 'javax.xml.bind', name: 'jaxb-api', version: jaxbVersion
+        testImplementation group: 'ch.qos.logback', name: 'logback-classic', version: logbackVersion
+        testImplementation group: 'javax.activation', name: 'activation', version: activationVersion
+
+    }
+}
+
+project("activitystream-dataset") {
+    description = 'A Camel Kafka service'
+    dependencies {
+        api group: 'org.apache.camel', name: 'camel-core', version: camelVersion
+        api project(":camel-ldp")
+        api group: 'org.apache.jena', name: 'jena-osgi', version: jenaVersion
+        api group: 'org.trellisldp', name: 'trellis-io-jena', version: trellisIoJenaVersion
+        testImplementation group: 'org.apache.jena', name: 'jena-osgi', version: jenaVersion
+        testImplementation group: 'org.trellisldp', name: 'trellis-io-jena', version: trellisIoJenaVersion
+        testImplementation group: 'org.apache.camel', name: 'camel-kafka', version: '2.20.0'
+        testImplementation group: 'org.apache.camel', name: 'camel-jackson', version: '2.20.0'
+        testImplementation group: 'org.apiguardian', name: 'apiguardian-api', version: apiguardianVersion
+        testImplementation group: 'org.junit.platform', name: 'junit-platform-runner', version: junitPlatformVersion
+        testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-engine', version: junitVersion
+        testImplementation group: 'org.apache.camel', name: 'camel-test', version: camelVersion
+        testImplementation group: 'javax.xml.bind', name: 'jaxb-api', version: jaxbVersion
+        testImplementation group: 'ch.qos.logback', name: 'logback-classic', version: logbackVersion
+        testCompile group: 'org.apache.camel', name: 'camel-test-blueprint', version: camelVersion
+        testImplementation group: 'javax.activation', name: 'activation', version: activationVersion
+    }
+
+    jar {
+        manifest {
+            attributes 'Import-Package': "org.apache.camel,${defaultOsgiImports}",
+                    'Export-Package': "org.trellisldp.camel.kafka.activitystream.dataset;version=${projectOsgiVersion}"
+        }
+    }
+
+    artifacts {
+        archives(file('build/cfg/main/org.trellisldp.camel.kafka.activitystream.cfg')) {
+            classifier 'configuration'
+            type 'cfg'
+        }
+    }
+}
+
+task submoduleUpdate(type: Exec) {
+    description = 'Updates and merges submodules'
+    executable = 'git'
+    args = ['submodule', 'update', '--remote', '--merge']
+}

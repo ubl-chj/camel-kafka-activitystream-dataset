@@ -1,0 +1,3 @@
+[submodule "camel-ldp"]
+	path = camel-ldp
+	url = https://github.com/trellis-ldp/camel-ldp.git

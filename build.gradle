@@ -10,6 +10,7 @@ buildscript {
 
 plugins {
     id 'net.researchgate.release' version '2.6.0'
+    id 'com.github.hierynomus.license' version '0.14.0'
     id 'io.codearte.nexus-staging' version '0.9.0'
     id 'com.palantir.docker' version '0.13.0'
     id 'org.dm.bundle' version '0.10.0'
@@ -46,12 +47,16 @@ task processBuildTools(type: Copy) {
 }
 
 configure(allprojects) { project ->
+    apply plugin: 'application'
+    apply plugin: 'checkstyle'
     apply plugin: 'maven'
     apply plugin: 'java'
     apply plugin: 'java-library'
     apply plugin: 'org.dm.bundle'
+    apply plugin: 'com.github.hierynomus.license'
 
     group = 'org.trellisldp.camel'
+    mainClassName = 'org.trellisldp.camel.kafka.activitystream.KafkaEventConsumer'
 
     repositories {
         jcenter()
@@ -86,13 +91,13 @@ configure(allprojects) { project ->
         commonsLangVersion = "3.5"
         commonsCsvVersion = "1.4"
         commonsRdfJenaVersion = "0.3.0-incubating"
+        commonsRdfVersion = '0.3.0-incubating'
         dexxcollectionVersion = '0.6'
         guavaVersion = "20.0"
         httpclientVersion = "4.5.3"
         httpcoreVersion = "4.4.6"
         jacksonVersion = "2.9.0"
         jsonldVersion = "0.11.1"
-        mustacheVersion = "0.9.5_1"
         thriftVersion = "0.9.3"
         trellisApiVersion = "0.3.0"
         trellisIoJenaVersion = '0.2.1'
@@ -115,22 +120,21 @@ configure(allprojects) { project ->
     }
 
     processResources {
-        filesNotMatching(["**/*.sh", "**/*.jar"]) {
+        filesNotMatching(["**/*.sh", "**/*.jar", "**/*.tar", "**/*.xml"]) {
             expand(project.properties)
         }
     }
-
-    check.dependsOn processBuildTools
 
     def dockerResourceDir = "${rootProject.buildDir}/resources/main/docker"
     def mavenInstallPath = "repository/org/trellisldp/camel"
 
     docker {
-        name 'trellisldp/camel-kafka-activitystream-dataset'
+        name 'trellisldp/activitystream-dataset'
         tags "${version}"
         dockerfile file("${dockerResourceDir}/Dockerfile")
-        files "${dockerResourceDir}/cfg", "${dockerResourceDir}/lib"
-        copySpec.from("${buildDir}/maven").into("${mavenInstallPath}")
+        files "activitystream-dataset/build/distributions/activitystream-dataset-${version}.tar",
+                "${dockerResourceDir}/entrypoint.sh"
+        // copySpec.from("${buildDir}/maven").into("${mavenInstallPath}")
         pull true
         noCache true
     }
@@ -144,6 +148,23 @@ configure(allprojects) { project ->
     }
 
     copyTask.dependsOn install
+
+    license {
+        include "**/*.java"
+        header rootProject.file('build/license/HEADER.txt')
+        strictCheck true
+        mapping {
+            java = 'SLASHSTAR_STYLE'
+        }
+    }
+
+    checkstyle {
+        configFile = rootProject.file('build/checkstyle/checkstyle.xml')
+        configProperties.checkstyleConfigDir = rootProject.file('build/checkstyle/')
+        toolVersion = '8.1'
+    }
+
+    checkstyleMain.dependsOn processBuildTools
 }
 
 configure(subprojects) { subproject ->
@@ -164,7 +185,7 @@ configure(subprojects) { subproject ->
     }
 
     task processConfig(type: Copy) {
-        from('src/main/cfg') {
+        from('src/main/resources/cfg') {
             include '**/*.cfg'
         }
         into 'build/cfg/main'
@@ -314,11 +335,18 @@ project("camel-ldp") {
 project("activitystream-dataset") {
     description = 'A Camel Kafka service'
     dependencies {
-        api group: 'org.apache.camel', name: 'camel-core', version: camelVersion
-        api project(":camel-ldp")
-        api group: 'org.apache.jena', name: 'jena-osgi', version: jenaVersion
-        api group: 'org.trellisldp', name: 'trellis-io-jena', version: trellisIoJenaVersion
+        implementation group: 'org.apache.camel', name: 'camel-core', version: camelVersion
+        implementation project(":camel-ldp")
+        implementation group: 'org.apache.camel', name: 'camel-kafka', version: camelVersion
+        implementation group: 'org.apache.camel', name: 'camel-jackson', version: camelVersion
+        implementation group: 'org.apache.jena', name: 'jena-osgi', version: jenaVersion
+        implementation group: 'org.apache.commons', name: 'commons-rdf-api', version: commonsRdfVersion
+        implementation group: 'org.trellisldp', name: 'trellis-api', version: trellisApiVersion
+        implementation group: 'org.apache.commons', name: 'commons-rdf-jena', version: commonsRdfVersion
+        implementation group: 'ch.qos.logback', name: 'logback-classic', version: logbackVersion
+        compile group: 'org.apache.jena', name: 'jena-fuseki-embedded', version: '3.5.0'
         testImplementation group: 'org.apache.jena', name: 'jena-osgi', version: jenaVersion
+        testCompile group: 'org.apache.jena', name: 'jena-fuseki-embedded', version: '3.5.0'
         testImplementation group: 'org.trellisldp', name: 'trellis-io-jena', version: trellisIoJenaVersion
         testImplementation group: 'org.apache.camel', name: 'camel-kafka', version: '2.20.0'
         testImplementation group: 'org.apache.camel', name: 'camel-jackson', version: '2.20.0'
@@ -352,3 +380,4 @@ task submoduleUpdate(type: Exec) {
     executable = 'git'
     args = ['submodule', 'update', '--remote', '--merge']
 }
+

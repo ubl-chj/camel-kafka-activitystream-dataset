@@ -14,7 +14,7 @@
 
 package org.trellisldp.camel.kafka.activitystream;
 
-import static org.apache.camel.util.ObjectHelper.loadResourceAsURL;
+import static org.apache.camel.LoggingLevel.INFO;
 import static org.apache.commons.rdf.api.RDFSyntax.JSONLD;
 
 import java.io.InputStream;
@@ -25,67 +25,79 @@ import org.apache.camel.impl.DefaultCamelContext;
 import org.apache.camel.model.dataformat.JsonLibrary;
 import org.apache.commons.rdf.jena.JenaGraph;
 import org.apache.commons.rdf.jena.JenaRDF;
-import org.apache.jena.query.Dataset;
-import org.apache.jena.query.ReadWrite;
-import org.apache.jena.rdf.model.Model;
+import org.apache.jena.fuseki.embedded.FusekiServer;
+import org.apache.jena.rdfconnection.RDFConnection;
+import org.apache.jena.rdfconnection.RDFConnectionFactory;
+import org.apache.jena.sparql.core.DatasetGraph;
+import org.apache.jena.system.Txn;
 import org.apache.jena.tdb.TDBFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.trellisldp.api.IOService;
 import org.trellisldp.camel.ActivityStreamProcessor;
-import org.trellisldp.io.JenaIOService;
 
 /**
- * org.trellisldp.camel.kafka.activitystream.MessageConsumerClientTest.
+ * org.trellisldp.camel.kafka.activitystream.KafkaEventConsumerTest.
  *
  * @author christopher-johnson
  */
-public final class MessageConsumerClientTest {
+public final class KafkaEventConsumerTest {
 
-    private static final Logger LOG = LoggerFactory.getLogger(MessageConsumerClientTest.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(KafkaEventConsumerTest.class);
     private static final JenaRDF rdf = new JenaRDF();
-    private static IOService service = new JenaIOService(null);
+    private static IOService service = new JenaIOService();
+    private static DatasetGraph dsg = dataset();
 
-    private MessageConsumerClientTest() {
+    private KafkaEventConsumerTest() {
+    }
+
+    private static DatasetGraph dataset() {
+        return TDBFactory.createDatasetGraph("/tmp/activityStream_data");
+    }
+
+    private static void startFuseki(DatasetGraph ds) {
+        LOGGER.info("Starting Fuseki");
+        FusekiServer server = FusekiServer.create().add("/rdf", ds, true).build();
+        server.start();
     }
 
     public static void main(final String[] args) throws Exception {
+        startFuseki(dsg);
 
-        LOG.info("About to run Kafka-camel integration...");
+        LOGGER.info("About to run Kafka-camel integration...");
 
         final CamelContext camelContext = new DefaultCamelContext();
-
         camelContext.addRoutes(new RouteBuilder() {
             public void configure() {
                 final PropertiesComponent pc =
                         getContext().getComponent("properties", PropertiesComponent.class);
                 pc.setLocation("classpath:application.properties");
-                final Dataset dataset = TDBFactory
-                        .assembleDataset(loadResourceAsURL("/jena.dataset.ttl").toString());
 
-                log.info("About to start route: Kafka Server -> Log ");
+                LOGGER.info("About to start route: Kafka Server -> Log ");
 
                 from("kafka:{{consumer.topic}}?brokers={{kafka.host}}:{{kafka.port}}"
                         + "&maxPollRecords={{consumer.maxPollRecords}}"
                         + "&consumersCount={{consumer.consumersCount}}"
                         + "&seekTo={{consumer.seekTo}}" + "&groupId={{consumer.group}}")
                         .routeId("FromKafka").unmarshal().json(JsonLibrary.Jackson)
+                        .setHeader("fuseki.base", constant("{{fuseki.base}}"))
                         .process(new ActivityStreamProcessor()).marshal()
                         .json(JsonLibrary.Jackson, true)
+                        .log(INFO, LOGGER, "Serializing ActivityStreamMessage to JSONLD")
                         //.to("file://{{serialization.log}}");
                         .to("direct:jena");
                 from("direct:jena").process(exchange -> {
-                    dataset.begin(ReadWrite.WRITE);
-                    try {
-                        final JenaGraph graph = rdf.createGraph();
-                        service.read(exchange.getIn().getBody(InputStream.class), null, JSONLD)
-                                .forEach(graph::add);
-                        final Model model = dataset.getDefaultModel();
-                        model.add(graph.asJenaModel());
-                        dataset.commit();
-                    } finally {
-                        dataset.end();
+                    final JenaGraph graph = rdf.createGraph();
+                    service.read(exchange.getIn().getBody(InputStream.class), null, JSONLD)
+                            .forEach(graph::add);
+                    try (RDFConnection conn = RDFConnectionFactory
+                            .connect(exchange.getIn().getHeader("fuseki.base").toString())) {
+                        Txn.executeWrite(conn, () -> {
+                            conn.load(graph.asJenaModel());
+                        });
+                        conn.commit();
                     }
+                    LOGGER.info("Committing ActivityStreamMessage to Jena Dataset");
                 });
             }
         });
@@ -96,5 +108,4 @@ public final class MessageConsumerClientTest {
 
         camelContext.stop();
     }
-
 }

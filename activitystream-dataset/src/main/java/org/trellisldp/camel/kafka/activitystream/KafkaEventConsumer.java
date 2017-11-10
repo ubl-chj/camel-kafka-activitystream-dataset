@@ -15,73 +15,110 @@
 package org.trellisldp.camel.kafka.activitystream;
 
 import static org.apache.camel.LoggingLevel.INFO;
-import static org.apache.camel.util.ObjectHelper.loadResourceAsURL;
 import static org.apache.commons.rdf.api.RDFSyntax.JSONLD;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.io.InputStream;
 import org.apache.camel.builder.RouteBuilder;
+import org.apache.camel.component.properties.PropertiesComponent;
+import org.apache.camel.main.Main;
+import org.apache.camel.main.MainListenerSupport;
+import org.apache.camel.main.MainSupport;
 import org.apache.camel.model.dataformat.JsonLibrary;
 import org.apache.commons.rdf.jena.JenaGraph;
 import org.apache.commons.rdf.jena.JenaRDF;
-import org.apache.jena.query.Dataset;
-import org.apache.jena.query.ReadWrite;
-import org.apache.jena.rdf.model.Model;
+import org.apache.jena.fuseki.embedded.FusekiServer;
+import org.apache.jena.rdfconnection.RDFConnection;
+import org.apache.jena.rdfconnection.RDFConnectionFactory;
+import org.apache.jena.sparql.core.DatasetGraph;
+import org.apache.jena.system.Txn;
 import org.apache.jena.tdb.TDBFactory;
 import org.slf4j.Logger;
 import org.trellisldp.api.IOService;
 import org.trellisldp.camel.ActivityStreamProcessor;
-import org.trellisldp.io.JenaIOService;
 
 /**
- * An event consumer for Apache Kafka.
+ * KafkaEventConsumer.
  *
  * @author christopher-johnson
  */
-public class KafkaEventConsumer extends RouteBuilder {
-
+public class KafkaEventConsumer {
     private static final Logger LOGGER = getLogger(KafkaEventConsumer.class);
-    private static final JenaRDF rdf = new JenaRDF();
-    private static IOService service = new JenaIOService(null);
+    private static DatasetGraph dsg = dataset();
 
-    /**
-     * Configure the event route.
-     *
-     * @throws Exception exception
-     */
-    public void configure() throws Exception {
-        //final PropertiesComponent pc =
-        //      getContext().getComponent("properties", PropertiesComponent.class);
-        //pc.setLocation("classpath:org.trellisldp.camel.kafka.activitystream.cfg");
-        final Dataset dataset =
-                TDBFactory.assembleDataset(loadResourceAsURL("/jena.dataset.ttl").toString());
+    private static DatasetGraph dataset() {
+        return TDBFactory.createDatasetGraph("/tmp/activityStream_data");
+    }
 
-        log.info("About to start route: Kafka Server -> Log ");
+    private static void startFuseki(DatasetGraph dsg) {
+        LOGGER.info("Starting Fuseki");
+        FusekiServer server = FusekiServer.create().add("/rdf", dsg, true).build();
+        server.start();
+    }
 
-        from("kafka:{{consumer.topic}}?brokers={{kafka.host}}:{{kafka.port}}"
-                + "&maxPollRecords={{consumer.maxPollRecords}}"
-                + "&consumersCount={{consumer.consumersCount}}" + "&seekTo={{consumer.seekTo}}"
-                + "&groupId={{consumer.group}}")
-                .routeId("FromKafka")
-                .unmarshal()
-                .json(JsonLibrary.Jackson).process(new ActivityStreamProcessor()).marshal()
-                .json(JsonLibrary.Jackson, true)
-                .log(INFO, LOGGER, "Serializing ActivityStreamMessage to JSONLD")
-                .to("direct:jena");
-        from("direct:jena")
-                .routeId("jenaDataset")
-                .process(exchange -> {
-                    dataset.begin(ReadWrite.WRITE);
-                    try {
-                        final JenaGraph graph = rdf.createGraph();
-                        service.read(exchange.getIn().getBody(InputStream.class), null, JSONLD)
-                                .forEach(graph::add);
-                        final Model model = dataset.getDefaultModel();
-                        model.add(graph.asJenaModel());
-                        dataset.commit();
-                    } finally {
-                        dataset.end();
-                    }
-                }).log(INFO, LOGGER, "Writing ActivityStreamMessage to Jena Dataset");
+    public static void main(String[] args) throws Exception {
+        startFuseki(dsg);
+        KafkaEventConsumer kafkaConsumer = new KafkaEventConsumer();
+        kafkaConsumer.init();
+    }
+
+    private void init() throws Exception {
+        Main main = new Main();
+        main.addRouteBuilder(new KafkaEventRoute());
+        main.addMainListener(new Events());
+        main.run();
+    }
+
+    public static class Events extends MainListenerSupport {
+
+        @Override
+        public void afterStart(MainSupport main) {
+            System.out.println("KafkaEventConsumer with Camel is now started!");
+        }
+
+        @Override
+        public void beforeStop(MainSupport main) {
+            System.out.println("KafkaEventConsumer with Camel is now being stopped!");
+        }
+    }
+
+    public static class KafkaEventRoute extends RouteBuilder {
+
+        private static final JenaRDF rdf = new JenaRDF();
+        private static IOService service = new JenaIOService();
+
+        /**
+         * Configure the event route.
+         *
+         * @throws Exception exception
+         */
+        public void configure() throws Exception {
+            final PropertiesComponent pc =
+                    getContext().getComponent("properties", PropertiesComponent.class);
+            pc.setLocation("classpath:cfg/org.trellisldp.camel.kafka.activitystream.cfg");
+
+            from("kafka:{{consumer.topic}}?brokers={{kafka.host}}:{{kafka.port}}"
+                    + "&maxPollRecords={{consumer.maxPollRecords}}"
+                    + "&consumersCount={{consumer.consumersCount}}" + "&seekTo={{consumer.seekTo}}"
+                    + "&groupId={{consumer.group}}").routeId("kafkaConsumer").unmarshal()
+                    .json(JsonLibrary.Jackson).setHeader("fuseki.base", constant("{{fuseki.base}}"))
+                    .process(new ActivityStreamProcessor()).marshal()
+                    .json(JsonLibrary.Jackson, true)
+                    .log(INFO, LOGGER, "Serializing ActivityStreamMessage to JSONLD")
+                    .to("direct:jena");
+            from("direct:jena").routeId("jenaDataset").routeId("jenaDataset").process(exchange -> {
+                final JenaGraph graph = rdf.createGraph();
+                service.read(exchange.getIn().getBody(InputStream.class), null, JSONLD)
+                        .forEach(graph::add);
+                try (RDFConnection conn = RDFConnectionFactory
+                        .connect(exchange.getIn().getHeader("fuseki.base").toString())) {
+                    Txn.executeWrite(conn, () -> {
+                        conn.load(graph.asJenaModel());
+                    });
+                    conn.commit();
+                }
+                LOGGER.info("Committing ActivityStreamMessage to Jena Dataset");
+            });
+        }
     }
 }

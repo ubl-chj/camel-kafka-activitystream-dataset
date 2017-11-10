@@ -19,5 +19,4 @@ mvn:org.apache.commons/commons-rdf-jena/${commonsRdfJenaVersion} \
 mvn:org.trellisldp/trellis-api/${trellisApiVersion} \
 mvn:org.trellisldp/camel-ldp/${camelLdpVersion} \
 mvn:org.trellisldp/trellis-vocabulary/${trellisVocabularyVersion} \
-mvn:com.google.guava/guava/${guavaVersion} \
-mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.mustache-compiler/${mustacheVersion}
+mvn:com.google.guava/guava/${guavaVersion}

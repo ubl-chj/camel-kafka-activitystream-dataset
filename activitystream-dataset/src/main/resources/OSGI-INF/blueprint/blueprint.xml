@@ -8,7 +8,7 @@
 
     <cm:property-placeholder persistent-id="org.trellisldp.camel.kafka.activitystream" update-strategy="reload">
         <cm:default-properties>
-            <cm:property name="kafka.host" value="localhost"/>
+            <cm:property name="kafka.host" value="kafka"/>
             <cm:property name="kafka.port" value="9094"/>
             <cm:property name="kafka.serializerClass" value="kafka.serializer.StringEncoder"/>
             <cm:property name="producer.topic" value="trellis.event"/>
@@ -20,15 +20,14 @@
             <cm:property name="consumer.seekTo" value="beginning"/>
             <cm:property name="dual.commit.enabled" value="false"/>
             <cm:property name="serialization.log" value="/tmp/kafka-consumer.log"/>
-            <cm:property name="jena.assemblerFile" value="jena.dataset.ttl"/>
+            <cm:property name="jena.assembler" value="http://trellis:8080/repository/jenaAssembler"/>
         </cm:default-properties>
     </cm:property-placeholder>
 
-    <bean id="kafkaEventConsumer" class="org.trellisldp.camel.kafka.activitystream.KafkaEventConsumer">
-    </bean>
+    <bean id="kafkaEventConsumer" class="org.trellisldp.camel.kafka.activitystream.KafkaEventConsumer"></bean>
 
     <camelContext id="KafkaEventConsumer" xmlns="http://camel.apache.org/schema/blueprint">
-        <routeBuilder ref="kafkaEventConsumer"/>
+        <package>org.trellisldp.camel.kafka.activitystream</package>
     </camelContext>
 
 </blueprint>

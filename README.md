@@ -5,21 +5,33 @@ and writes the events to a Jena dataset.
 
 ### Build
 ```bash
-$ gradle install
-$ gradle copyTask
+$ gradle build
 $ gradle docker
 ```
 ### Configuration
 
 * org.trellisldp.camel.kafka.activitystream.cfg
-* jena.dataset.ttl
 
-Change location of the dataset in `jena.dataset.ttl`:
-```turtle
- tdb:location "/tmp/activityStream_data" .
- ```
- 
+* Default dataset Location `/tmp/activityStream_data`
+
  ### Docker
  ```bash
- $ docker run -ti trellisldp/camel-kafka-activitystream-dataset
+ $ docker run -ti trellisldp/activitystream-dataset
  ```
+ 
+### Use With Trellis:
+* Start [trellis-compose](https://github.com/trellis-ldp/trellis-deployment/blob/master/trellis-compose/docker-compose.yml) 
+
+* Start [camel-integration-compose](https://github.com/trellis-ldp/trellis-deployment/blob/master/trellis-compose/camel-integrations/docker-compose.yml)
+
+### Fuseki Endpoint
+* This includes an embedded Fuseki instance
+* Read and query events at:
+`http://localhost:3330/rdf`
+
+#### Example Query
+* Get Resource Subjects by Type (e.g. `<http://iiif.io/api/presentation/2#Manifest>`)
+
+```bash
+$ curl -v http://localhost:3330/rdf/query?query=SELECT%20*%20WHERE%20%7B%3Fs%20%3Chttp%3A%2F%2Fwww.w3.org%2F1999%2F02%2F22-rdf-syntax-ns%23type%3E%20%3Chttp%3A%2F%2Fiiif.io%2Fapi%2Fpresentation%2F2%23Manifest%3E%7D
+```

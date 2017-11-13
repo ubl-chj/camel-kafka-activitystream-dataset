@@ -44,7 +44,10 @@ import org.trellisldp.camel.ActivityStreamProcessor;
  */
 public class KafkaEventConsumer {
     private static final Logger LOGGER = getLogger(KafkaEventConsumer.class);
+
     private static DatasetGraph dsg = dataset();
+
+    private static String ACTIVITYSTREAM_NAMED_GRAPH = "http://trellis:8080/activitystream";
 
     private static DatasetGraph dataset() {
         return TDBFactory.createDatasetGraph("/tmp/activityStream_data");
@@ -113,7 +116,7 @@ public class KafkaEventConsumer {
                 try (RDFConnection conn = RDFConnectionFactory
                         .connect(exchange.getIn().getHeader("fuseki.base").toString())) {
                     Txn.executeWrite(conn, () -> {
-                        conn.load(graph.asJenaModel());
+                        conn.load(ACTIVITYSTREAM_NAMED_GRAPH, graph.asJenaModel());
                     });
                     conn.commit();
                 }

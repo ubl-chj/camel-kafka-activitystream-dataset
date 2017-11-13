@@ -8,7 +8,7 @@ ENV DATASET_RUNTIME /opt
 WORKDIR ${DATASET_RUNTIME}
 COPY *.tar .
 RUN tar -xvf *.tar && \
-mv activitystream-dataset-0.1.0-SNAPSHOT activitystream-dataset && \
+mv activitystream-dataset-${version} activitystream-dataset && \
 chmod +x ${DATASET_RUNTIME}/activitystream-dataset/bin/activitystream-dataset
 COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh

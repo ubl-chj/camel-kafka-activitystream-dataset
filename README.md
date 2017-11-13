@@ -27,7 +27,7 @@ $ gradle docker
 ### Fuseki Endpoint
 * This includes an embedded Fuseki instance
 * Read and query events at:
-`http://localhost:3330/rdf`
+`http://localhost:3330/rdf/data?graph=http://trellisldp.org/activitystream`
 
 #### Example Query
 * Get Resource Subjects by Type (e.g. `<http://iiif.io/api/presentation/2#Manifest>`)

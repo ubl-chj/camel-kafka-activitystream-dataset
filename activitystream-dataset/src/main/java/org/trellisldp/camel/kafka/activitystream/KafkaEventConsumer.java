@@ -47,7 +47,7 @@ public class KafkaEventConsumer {
 
     private static DatasetGraph dsg = dataset();
 
-    private static String ACTIVITYSTREAM_NAMED_GRAPH = "http://trellis:8080/activitystream";
+    private static String ACTIVITYSTREAM_NAMED_GRAPH = "http://trellisldp.org/activitystream";
 
     private static DatasetGraph dataset() {
         return TDBFactory.createDatasetGraph("/tmp/activityStream_data");

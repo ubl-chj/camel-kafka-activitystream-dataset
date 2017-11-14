@@ -9,7 +9,8 @@ WORKDIR ${DATASET_RUNTIME}
 COPY *.tar .
 RUN tar -xvf *.tar && \
 mv activitystream-dataset-${version} activitystream-dataset && \
-chmod +x ${DATASET_RUNTIME}/activitystream-dataset/bin/activitystream-dataset
+chmod +x ${DATASET_RUNTIME}/activitystream-dataset/bin/activitystream-dataset && \
+mkdir -p /mnt/activitystream-data
 COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh
 ENTRYPOINT [ "./entrypoint.sh" ]

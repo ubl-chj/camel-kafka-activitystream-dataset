@@ -84,7 +84,6 @@ configure(allprojects) { project ->
     }
 
     ext {
-        /* Dependencies */
         camelVersion = '2.20.0'
         camelLdpVersion = '0.1.0-SNAPSHOT'
         commonsIoVersion = "2.5"
@@ -113,7 +112,6 @@ configure(allprojects) { project ->
         apiguardianVersion = '1.0.0'
         trellisIoJenaVersion = '0.2.1'
 
-        /* OSGi */
         camelVersionRange = '[2.16,3)'
         projectOsgiVersion = project.version.replaceAll("-SNAPSHOT", ".SNAPSHOT")
         defaultOsgiImports = 'org.osgi.service.blueprint;version="[1,2)",*'
@@ -348,8 +346,8 @@ project("activitystream-dataset") {
         testImplementation group: 'org.apache.jena', name: 'jena-osgi', version: jenaVersion
         testCompile group: 'org.apache.jena', name: 'jena-fuseki-embedded', version: '3.5.0'
         testImplementation group: 'org.trellisldp', name: 'trellis-io-jena', version: trellisIoJenaVersion
-        testImplementation group: 'org.apache.camel', name: 'camel-kafka', version: '2.20.0'
-        testImplementation group: 'org.apache.camel', name: 'camel-jackson', version: '2.20.0'
+        testImplementation group: 'org.apache.camel', name: 'camel-kafka', version: camelVersion
+        testImplementation group: 'org.apache.camel', name: 'camel-jackson', version: camelVersion
         testImplementation group: 'org.apiguardian', name: 'apiguardian-api', version: apiguardianVersion
         testImplementation group: 'org.junit.platform', name: 'junit-platform-runner', version: junitPlatformVersion
         testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-engine', version: junitVersion

@@ -12,7 +12,7 @@ $ gradle docker
 
 * org.trellisldp.camel.kafka.activitystream.cfg
 
-* Default dataset Location `/tmp/activityStream_data`
+* Default dataset Location `/mnt/activitystream-data`
 
  ### Docker
  ```bash
@@ -32,6 +32,11 @@ $ gradle docker
 #### Example Query
 * Get Resource Subjects by Type (e.g. `<http://iiif.io/api/presentation/2#Manifest>`)
 
+```sparql
+SELECT * WHERE {GRAPH <http://trellisldp.org/activitystream> 
+{?s <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://iiif.io/api/presentation/2#Manifest>}}
+```
+
 ```bash
-$ curl -v http://localhost:3330/rdf/query?query=SELECT%20*%20WHERE%20%7B%3Fs%20%3Chttp%3A%2F%2Fwww.w3.org%2F1999%2F02%2F22-rdf-syntax-ns%23type%3E%20%3Chttp%3A%2F%2Fiiif.io%2Fapi%2Fpresentation%2F2%23Manifest%3E%7D
+$ curl -v http://localhost:3330/rdf/query?query=SELECT%20*%20WHERE%20%7BGRAPH%20%3Chttp%3A%2F%2Ftrellisldp.org%2Factivitystream%3E%20%7B%3Fs%20%3Chttp%3A%2F%2Fwww.w3.org%2F1999%2F02%2F22-rdf-syntax-ns%23type%3E%20%3Chttp%3A%2F%2Fiiif.io%2Fapi%2Fpresentation%2F2%23Manifest%3E%7D%7D
 ```

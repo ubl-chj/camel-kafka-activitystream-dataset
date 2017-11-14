@@ -44,15 +44,20 @@ import org.trellisldp.camel.ActivityStreamProcessor;
 public final class KafkaEventConsumerTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(KafkaEventConsumerTest.class);
+
     private static final JenaRDF rdf = new JenaRDF();
+
     private static IOService service = new JenaIOService();
+
     private static DatasetGraph dsg = dataset();
+
+    private static final String DATASET_LOCATION = "/mnt/activitystream-data";
 
     private KafkaEventConsumerTest() {
     }
 
     private static DatasetGraph dataset() {
-        return TDBFactory.createDatasetGraph("/tmp/activityStream_data");
+        return TDBFactory.createDatasetGraph(DATASET_LOCATION);
     }
 
     private static void startFuseki(DatasetGraph ds) {

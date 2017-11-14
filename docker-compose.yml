@@ -1,0 +1,23 @@
+version: "3.2"
+
+services:
+  activitystream-dataset:
+    image: trellisldp/activitystream-dataset
+    container_name: activitystream-dataset
+    networks:
+      - trelliscompose_default
+    ports:
+      - "3330:3330"
+    volumes:
+      - activitystream-dataset-volume:/mnt/activitystream-data
+
+networks:
+  trelliscompose_default:
+    external: true
+
+volumes:
+  activitystream-dataset-volume:
+    driver_opts:
+      type: none
+      device: /mnt/activitystream-data
+      o: bind

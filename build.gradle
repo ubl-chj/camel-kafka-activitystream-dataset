@@ -85,7 +85,7 @@ configure(allprojects) { project ->
 
     ext {
         camelVersion = '2.20.0'
-        camelLdpVersion = '0.1.0-SNAPSHOT'
+        camelLdpVersion = '0.1.0'
         commonsIoVersion = "2.5"
         commonsLangVersion = "3.5"
         commonsCsvVersion = "1.4"
@@ -313,28 +313,11 @@ project("camel-kafka-karaf") {
     }
 }
 
-project("camel-ldp") {
-    description = 'LDP Utilities for Apache Camel'
-
-    dependencies {
-        api group: 'org.apache.camel', name: 'camel-core', version: camelVersion
-
-        testImplementation group: 'org.apiguardian', name: 'apiguardian-api', version: apiguardianVersion
-        testImplementation group: 'org.junit.platform', name: 'junit-platform-runner', version: junitPlatformVersion
-        testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-engine', version: junitVersion
-        testImplementation group: 'org.apache.camel', name: 'camel-test', version: camelVersion
-        testImplementation group: 'javax.xml.bind', name: 'jaxb-api', version: jaxbVersion
-        testImplementation group: 'ch.qos.logback', name: 'logback-classic', version: logbackVersion
-        testImplementation group: 'javax.activation', name: 'activation', version: activationVersion
-
-    }
-}
-
 project("activitystream-dataset") {
     description = 'A Camel Kafka service'
     dependencies {
         implementation group: 'org.apache.camel', name: 'camel-core', version: camelVersion
-        implementation project(":camel-ldp")
+        implementation group: 'org.trellisldp', name: 'camel-ldp', version: camelLdpVersion
         implementation group: 'org.apache.camel', name: 'camel-kafka', version: camelVersion
         implementation group: 'org.apache.camel', name: 'camel-jackson', version: camelVersion
         implementation group: 'org.apache.jena', name: 'jena-osgi', version: jenaVersion

@@ -1,4 +1,3 @@
-include 'camel-ldp'
 include 'activitystream-dataset'
 include 'camel-kafka-karaf'
 

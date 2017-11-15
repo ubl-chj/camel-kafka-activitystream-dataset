@@ -9,7 +9,8 @@ services:
     ports:
       - "3330:3330"
     volumes:
-      - activitystream-dataset-volume:/mnt/activitystream-data
+      - activitystream-dataset-volume:/mnt/fuseki-data/activitystream
+      - resource-dataset-volume:/mnt/fuseki-data/resources
 
 networks:
   trelliscompose_default:
@@ -19,5 +20,11 @@ volumes:
   activitystream-dataset-volume:
     driver_opts:
       type: none
-      device: /mnt/activitystream-data
+      device: /mnt/fuseki-data/activitystream
+      o: bind
+
+  resource-dataset-volume:
+    driver_opts:
+      type: none
+      device: /mnt/fuseki-data/resources
       o: bind

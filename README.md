@@ -12,7 +12,10 @@ $ gradle docker
 
 * org.trellisldp.camel.kafka.activitystream.cfg
 
-* Default dataset Location `/mnt/activitystream-data`
+* Default activitystream dataset Location `/mnt/fuseki-data/activitystream`
+* Default resource dataset Location `/mnt/fuseki-data/resources`
+
+These directories must exist and be writeable on the host.
 
  ### Docker
  ```bash

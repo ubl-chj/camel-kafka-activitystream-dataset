@@ -45,24 +45,35 @@ import org.trellisldp.camel.ActivityStreamProcessor;
 public class KafkaEventConsumer {
     private static final Logger LOGGER = getLogger(KafkaEventConsumer.class);
 
-    private static final DatasetGraph dsg = dataset();
+    private static final DatasetGraph dsg1 = ds1();
+
+    private static final DatasetGraph dsg2 = ds2();
 
     private static final String ACTIVITYSTREAM_NAMED_GRAPH = "http://trellisldp.org/activitystream";
 
-    private static final String DATASET_LOCATION = "/mnt/activitystream-data";
+    private static final String AS_DATASET_LOCATION = "/mnt/fuseki-data/activitystream";
 
-    private static DatasetGraph dataset() {
-        return TDBFactory.createDatasetGraph(DATASET_LOCATION);
+    private static final String RESOURCE_DATASET_LOCATION = "/mnt/fuseki-data/resources";
+
+    private static DatasetGraph ds1() {
+        return TDBFactory.createDatasetGraph(AS_DATASET_LOCATION);
     }
 
-    private static void startFuseki(DatasetGraph dsg) {
+    private static DatasetGraph ds2() {
+        return TDBFactory.createDatasetGraph(RESOURCE_DATASET_LOCATION);
+    }
+
+    private static void startFuseki() {
         LOGGER.info("Starting Fuseki");
-        FusekiServer server = FusekiServer.create().add("/rdf", dsg, true).build();
+        FusekiServer server = FusekiServer.create()
+        .add("/as", dsg1, true)
+        .add("/res", dsg2, true)
+        .build();
         server.start();
     }
 
     public static void main(String[] args) throws Exception {
-        startFuseki(dsg);
+        startFuseki();
         KafkaEventConsumer kafkaConsumer = new KafkaEventConsumer();
         kafkaConsumer.init();
     }

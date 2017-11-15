@@ -20,7 +20,6 @@
             <cm:property name="consumer.seekTo" value="beginning"/>
             <cm:property name="dual.commit.enabled" value="false"/>
             <cm:property name="serialization.log" value="/tmp/kafka-consumer.log"/>
-            <cm:property name="jena.assembler" value="http://trellis:8080/repository/jenaAssembler"/>
         </cm:default-properties>
     </cm:property-placeholder>
 
